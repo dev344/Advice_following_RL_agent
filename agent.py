@@ -2,10 +2,12 @@
 from collections import defaultdict
 from math import log
 import random
+import sys
 
 from simulator import ExitRoomSimulator
 
 gamma = 1.0
+EPISODES = 10000
 
 class MaxQAgent:
     """An advice following MaxQ agent. 
@@ -28,25 +30,29 @@ class MaxQAgent:
                     {'name' : split[1],\
                     'children' : [int(c) for c in split[2:]]}
 
-        print self.nodes 
-
-        self.init_episode()
-
-    def init_episode(self):
         self.t = 0
+
+    def init_episode(self, ep_count):
+        self.t = 0
+        self.ep_count = ep_count + 1
     
     def MaxQ_0(self, i):
         state = self.getState()
+        # print "mq ", i, state
+        alpha = 1.0 / self.ep_count
 
         # If it is a primitive action
         if self.nodes[i]['children'] == []:
             reward = self.execute(i)
-            alpha = self.alpha(i)
+            # alpha = self.alpha(i)
             try:
                 self.v_func[(i, state)] = (1-alpha) * self.v_func[(i, state)] + \
                         alpha*reward
             except KeyError:
                 self.v_func[(i, state)] = alpha*reward
+
+            # if reward > 10:
+                # print >> sys.stderr, self.v_func[(i, state)], alpha, reward
 
             self.t += 1
             return 1
@@ -54,9 +60,10 @@ class MaxQAgent:
         # If not a primitive action
         else:
             count = 0
+            epsi = self.epsilon()
             while not self.terminated(i, state):
                 # choose action using q value
-                if random.random() < self.epsilon():
+                if random.random() < epsi:
                     action = self.nodes[i]['children'][\
                             random.randrange(len(self.nodes[i]['children']))]
                 else:
@@ -79,10 +86,14 @@ class MaxQAgent:
                 new_state = self.getState()
 
                 # update C value using evaluate function
-                alpha = self.alpha(i)
+
+                # alpha = self.alpha(i)
                 self.c_func[(i, state, action)] = \
                         (1-alpha) * self.c_func[(i, state, action)] + \
-                        alpha * (gamma**N) * self.evaluateMaxNode(i, new_state)
+                        alpha * self.evaluateMaxNode(i, new_state)
+                # self.c_func[(i, state, action)] = \
+                #         (1-alpha) * self.c_func[(i, state, action)] + \
+                #         alpha * (gamma**N) * self.evaluateMaxNode(i, new_state)
 
                 count += N 
 
@@ -101,23 +112,37 @@ class MaxQAgent:
         else:
             max_child = -1
             max_q_value = -1000
+            max_v = -1
             for j in self.nodes[i]['children']:
                 # compute q(i, s, j)
-                value = self.evaluateMaxNode(j, state) + \
+                v = self.evaluateMaxNode(j, state)
+                value = v + \
                         self.c_func[(i, state, j)]
                 if value > max_q_value:
                     max_child = j
                     max_q_value = value
+                    max_v = v
 
             #TODO: Check whether paper is wrong.
             return max_q_value
 
     def startEpisode(self):
-        for i in xrange(100):
+        for i in xrange(EPISODES):
+            self.init_episode(i)
+            start = [random.randrange(6), random.randrange(6)]
             self.simulator = ExitRoomSimulator(6,\
-                    [random.randrange(6), random.randrange(6)],\
+                    start,\
                     [0, 5])
+            # print >> sys.stderr, "start is ", start
             self.MaxQ_0(0)
+        for i in xrange(6):
+            for j in xrange(2):
+                print str(i), str(4+j), self.evaluateMaxNode(2, (i, 4+j))
+                
+        for key in self.v_func:
+            print key, self.v_func[key]
+        for key in self.c_func:
+            print key, self.c_func[key]
 
     def terminated(self, i, state):
         if i == 1:
@@ -125,8 +150,15 @@ class MaxQAgent:
                 return True
             else:
                 return False
-        elif i == 2 or i == 0:
+        elif i == 0:
             if state == tuple(self.simulator.goal):
+                return True
+            else: 
+                return False
+        elif i == 2:
+            if state == tuple(self.simulator.goal):
+                return True
+            elif state[1] < 4:
                 return True
             else: 
                 return False
@@ -148,10 +180,10 @@ class MaxQAgent:
 
 
     def alpha(self, i):
-        return 1.0/(self.t+1)
+        return 1.0/ (self.ep_count)
 
     def epsilon(self):
-        return 0.2 / (log(self.t+1)+1)
+        return 0.4 / (log(self.ep_count+1)+1)
 
 
 if __name__ == '__main__':
