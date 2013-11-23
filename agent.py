@@ -38,7 +38,7 @@ class MaxQAgent:
         self.ep_count = ep_count + 1
     
     def MaxQ_0(self, i):
-        state = self.getState()
+        state = self.getState(i)
         # print "mq ", i, state
         alpha = 1.0 / self.ep_count
 
@@ -137,9 +137,9 @@ class MaxQAgent:
             self.advice = ['S', 'E', 'E', 'S', 'E', 'N', 'N', 'E']
             # print >> sys.stderr, "start is ", start
             self.MaxQ_0(0)
-        for i in xrange(6):
-            for j in xrange(2):
-                print str(i), str(4+j), self.evaluateMaxNode(2, (i, 4+j))
+        # for i in xrange(6):
+        #     for j in xrange(2):
+        #         print str(i), str(4+j), self.evaluateMaxNode(2, (i, 4+j))
                 
         for key in self.v_func:
             print key, self.v_func[key]
@@ -168,7 +168,10 @@ class MaxQAgent:
             return True
 
     def getState(self):
-        return (self.simulator.state[0], self.simulator.state[1])
+        state = [self.simulator.state[0], self.simulator.state[1],\
+                self.simulator.state[2], self.simulator.state[3]]
+        state.extend(self.advice[:3])
+        return tuple(state)
 
     def execute(self, i):
         if i == 3: # North
