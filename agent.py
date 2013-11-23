@@ -4,10 +4,11 @@ from math import log
 import random
 import sys
 
-from simulator import ExitRoomSimulator
+# from simulator import ExitRoomSimulator
+from simulator import GridWorldWithVehicle
 
 gamma = 1.0
-EPISODES = 10000
+EPISODES = 30000
 
 class MaxQAgent:
     """An advice following MaxQ agent. 
@@ -32,7 +33,7 @@ class MaxQAgent:
 
         self.t = 0
 
-    def init_episode(self, ep_count):
+    def initEpisodes(self, ep_count):
         self.t = 0
         self.ep_count = ep_count + 1
     
@@ -128,11 +129,12 @@ class MaxQAgent:
 
     def startEpisode(self):
         for i in xrange(EPISODES):
-            self.init_episode(i)
+            self.initEpisodes(i)
             start = [random.randrange(6), random.randrange(6)]
-            self.simulator = ExitRoomSimulator(6,\
-                    start,\
-                    [0, 5])
+            self.simulator = GridWorldWithVehicle(6,\
+                    10,\
+                    27)
+            self.advice = ['S', 'E', 'E', 'S', 'E', 'N', 'N', 'E']
             # print >> sys.stderr, "start is ", start
             self.MaxQ_0(0)
         for i in xrange(6):

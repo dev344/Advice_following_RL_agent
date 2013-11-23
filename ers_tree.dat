@@ -1,0 +1,6 @@
+0 Root 1 2
+1 Exit 3 4 5
+2 GoToGoal 3 4 5
+3 North
+4 South
+5 East
