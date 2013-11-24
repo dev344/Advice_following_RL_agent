@@ -38,7 +38,7 @@ class GridWorldWithVehicle:
     """
 
     def __init__(self, n, pos_x, pos_y):
-        self.MAX_VEL = 3
+        self.MAX_VEL = 2
 
         self.n = n
         self.state = [pos_x, pos_y, 0, 0]
@@ -49,7 +49,7 @@ class GridWorldWithVehicle:
         #               'pos': [pos_x, pos_y]}
 
     def readWalls(self):
-        f = open('./walls.txt', 'r')
+        f = open('./walls2.txt', 'r')
 
         for i in xrange(self.n+1):
             line = f.readline()
@@ -68,6 +68,8 @@ class GridWorldWithVehicle:
                 for y in xrange(self.n):
                     self.wall_block[(x - (x%self.n) - 0.5,\
                         self.n*(x%self.n)+y)] = True
+
+        print self.wall_block
 
     def moveSteps(self, x, y):
         new_x = self.state[0] + x
@@ -116,6 +118,7 @@ class GridWorldWithVehicle:
         self.state[2] = x_sign * min(abs(new_x), self.MAX_VEL)
         self.state[3] = y_sign * min(abs(new_y), self.MAX_VEL)
 
+        print self.state
         return reward
 
 if __name__ == '__main__':
