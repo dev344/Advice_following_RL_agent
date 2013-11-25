@@ -80,11 +80,11 @@ class GridWorldWithVehicle:
             self.wall_block[change_tuple]
             # print self.state, x, y, change_tuple
             # No state change because you crashed into wall.
-            return -2.0
+            return -1.7
         except KeyError:
             self.state[0] = new_x
             self.state[1] = new_y
-            return -1.3
+            return -1.0
 
     def move(self):
         # Try to alternate x and y moves as much as possible
@@ -103,7 +103,10 @@ class GridWorldWithVehicle:
         for step in move_list:
             reward += self.moveSteps(step[0], step[1])
 
-        return (reward/(len(move_list)+1)-1)
+        if len(move_list) == 0:
+            return -1
+        else:
+            return reward/len(move_list)
 
     def simulateStepWithAcc(self, acc_x, acc_y):
         reward = self.move()
