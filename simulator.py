@@ -49,7 +49,7 @@ class GridWorldWithVehicle:
         #               'pos': [pos_x, pos_y]}
 
     def readWalls(self):
-        f = open('./walls2.txt', 'r')
+        f = open('./walls3.txt', 'r')
 
         for i in xrange(self.n+1):
             line = f.readline()
@@ -69,8 +69,6 @@ class GridWorldWithVehicle:
                     self.wall_block[(x - (x%self.n) - 0.5,\
                         self.n*(x%self.n)+y)] = True
 
-        print self.wall_block
-
     def moveSteps(self, x, y):
         new_x = self.state[0] + x
         new_y = self.state[1] + y
@@ -82,11 +80,11 @@ class GridWorldWithVehicle:
             self.wall_block[change_tuple]
             # print self.state, x, y, change_tuple
             # No state change because you crashed into wall.
-            return -1.5
+            return -2.0
         except KeyError:
             self.state[0] = new_x
             self.state[1] = new_y
-            return -1
+            return -1.3
 
     def move(self):
         # Try to alternate x and y moves as much as possible
@@ -101,11 +99,11 @@ class GridWorldWithVehicle:
             move_list.insert(insert_index, (0, sign))
             insert_index += 2
 
-        reward = 0
+        reward = 0.0
         for step in move_list:
             reward += self.moveSteps(step[0], step[1])
 
-        return reward
+        return (reward/(len(move_list)+1)-1)
 
     def simulateStepWithAcc(self, acc_x, acc_y):
         reward = self.move()
@@ -118,7 +116,7 @@ class GridWorldWithVehicle:
         self.state[2] = x_sign * min(abs(new_x), self.MAX_VEL)
         self.state[3] = y_sign * min(abs(new_y), self.MAX_VEL)
 
-        print self.state
+        # print self.state
         return reward
 
 if __name__ == '__main__':

@@ -8,7 +8,9 @@ import sys
 from simulator import GridWorldWithVehicle
 
 gamma = 1.0
-EPISODES = 2
+EPISODES = 2000000
+TEST_EPISODES = 10
+SIZE = 8
 
 class MaxQAgent:
     """An advice following MaxQ agent. 
@@ -24,7 +26,7 @@ class MaxQAgent:
         self.c_func = defaultdict(int)        # non-primitive actions
         self.nodes = dict()
 
-        f = open('./gwwv_tree.dat', 'r')
+        f = open('./qlearningtree.dat', 'r')
         for line in f.readlines():
             split = line.split()
             self.nodes[int(split[0])] = \
@@ -38,18 +40,51 @@ class MaxQAgent:
         self.t = 0
         self.translated_advice = []
         self.ep_count = ep_count + 1
+
+        self.advices = [['n', 'n', 'n'],\
+                        ['n', 'e', 'n'],\
+                        ['n', 'e', 's'],\
+                        ['n', 'n', 'e'],\
+                        ['n', 'n', 'w'],\
+                        ['n', 'w', 'n'],\
+                        ['n', 'w', 's'],\
+                        \
+                        ['e', 'e', 'e'],\
+                        ['e', 's', 'e'],\
+                        ['e', 's', 'w'],\
+                        ['e', 'e', 's'],\
+                        ['e', 'e', 'n'],\
+                        ['e', 'n', 'e'],\
+                        ['e', 'n', 'w'],\
+                        \
+                        ['s', 's', 's'],\
+                        ['s', 'w', 's'],\
+                        ['s', 'w', 'n'],\
+                        ['s', 's', 'w'],\
+                        ['s', 's', 'e'],\
+                        ['s', 'e', 's'],\
+                        ['s', 'e', 'n'],\
+
+                        ['w', 'w', 'w'],\
+                        ['w', 'n', 'w'],\
+                        ['w', 'n', 'e'],\
+                        ['w', 'w', 'n'],\
+                        ['w', 'w', 's'],\
+                        ['w', 's', 'w'],\
+                        ['w', 's', 'e']]
     
     def MaxQ_0(self, i):
         # alpha = 1.0 / (self.ep_count * (log(self.t + 1)+1))
-        alpha = 1.0 / (self.ep_count)
+        alpha = 1.0 / (log(self.ep_count)+1)
 
         # If it is a primitive action
-        print i
+        if self.debug:
+            print i
+
         if self.nodes[i]['children'] == []:
             state = self.getState(i)
-            print state
+            # print state
             reward = self.execute(i)
-            print 'reward', reward, alpha, self.ep_count
             # alpha = self.alpha(i)
             try:
                 self.v_func[(i, state)] = (1-alpha) * self.v_func[(i, state)] + \
@@ -57,6 +92,11 @@ class MaxQAgent:
             except KeyError:
                 self.v_func[(i, state)] = alpha*reward
 
+            if self.debug:
+                print 'reward', reward, alpha, state, i, self.v_func[(i, state)]
+
+            if reward > 24:
+                print 'reward', reward, state, i, self.v_func[(i, state)]
             self.t += 1
             return 1
 
@@ -65,25 +105,16 @@ class MaxQAgent:
             count = 0
             epsi = self.epsilon()
 
-            # for 3-advice-full 
-            if i == 1:
-                self.advice.pop(0)
-                self.cur_box = (self.simulator.state[0]/6, \
-                        self.simulator.state[1]/6)
-                self.tar_box = self.getTarget(self.cur_box, self.advice[0])
-                self.translated_advice = self.advice[:2]
-                to_solve = 1
-                partial_tar_box = self.tar_box[:]
-                partial_advice = self.translated_advice[:]
-                print self.tar_box
-
             state = self.getState(i)
-            while not self.terminated(i, state):
+
+            while not self.terminated(i) and count < 100:
                 # choose action using q value
+                if self.debug:
+                    print 'else', self.simulator.state, state,
                 if random.random() < epsi:
                     action = self.nodes[i]['children'][\
                             random.randrange(len(self.nodes[i]['children']))]
-                    print 'action chosen', action, epsi
+                    # print 'action chosen', action, epsi
                 else:
                     max_child = -1
                     max_q_value = -1000000
@@ -91,12 +122,18 @@ class MaxQAgent:
                         # compute q(i, s, j)
                         value = self.evaluateMaxNode(j, state) + \
                                 self.c_func[(i, state, j)]
+
+                        if self.debug:
+                            print j, value, "|",
+
                         if value > max_q_value:
                             max_child = j
                             max_q_value = value
 
                     action =  max_child
 
+                if self.debug:
+                    print 'action', action
                 # call MaxQ_0 with action 
                 N = self.MaxQ_0(action)
 
@@ -114,32 +151,10 @@ class MaxQAgent:
 
                 state = new_state
 
-                # The part I despise
-                if i == 1:
-                    old_box = self.cur_box[:]
-                    self.cur_box = (self.simulator.state[0]/6, \
-                            self.simulator.state[1]/6)
-
-                    # if you solved Node 2 properly
-                    print 'partial target', tuple(partial_tar_box) 
-                    print 'cur_box', self.cur_box
-                    if self.cur_box == tuple(partial_tar_box):
-                        to_solve -= 1
-                        partial_advice.pop(0)
-                        self.translated_advice = partial_advice[:2]
-                        partial_tar_box = self.getTarget(self.cur_box,\
-                                                partial_advice[0])
-                        print 'to solve', to_solve
-
-                    # else, you need to solve another node 2.
-                    elif self.cur_box != old_box: 
-                        to_solve += 1
-                        partial_advice.insert(0, self.getTargetDir(\
-                                self.cur_box, partial_tar_box))
-                        partial_tar_box = old_box[:]
-                        self.translated_advice = partial_advice[:2]
-                    print partial_advice, self.translated_advice
             #end while
+
+            if count >= 100:
+                print "count", count, state
 
             return count
 
@@ -169,94 +184,117 @@ class MaxQAgent:
             return max_q_value
 
     def startEpisode(self):
+        start_x = 12 + random.randrange(SIZE) 
+        start_y = 12 + random.randrange(SIZE)
+        self.simulator = GridWorldWithVehicle(SIZE,\
+                start_x,\
+                start_y)
+
+        self.debug = False
         for i in xrange(EPISODES):
             self.initEpisodes(i)
-            start = [random.randrange(6), random.randrange(6)]
-            self.simulator = GridWorldWithVehicle(6,\
-                    03,\
-                    33)
-            self.advice = ['E', 'E', 'E', 'S', 'S', 'S', 'E', 'E', 'S', 'S']
-            # print >> sys.stderr, "start is ", start
-            self.MaxQ_0(0)
-            print "Episode", i, "done."
-        # for i in xrange(6):
-        #     for j in xrange(2):
-        #         print str(i), str(4+j), self.evaluateMaxNode(2, (i, 4+j))
-                
-        for key in self.v_func:
-            print key, self.v_func[key]
-        for key in self.c_func:
-            print key, self.c_func[key]
+            start_x = 12 + random.randrange(SIZE) 
+            start_y = 12 + random.randrange(SIZE)
+            vel_x = random.randrange(5) - 2
+            vel_y = random.randrange(5) - 2
+            self.start = [start_x/SIZE, start_y/SIZE]
+            self.simulator.state = [start_x, start_y, vel_x, vel_y]
+            # self.advice = self.advices[random.randrange(len(self.advices))]
+            self.advice = self.advices[random.randrange(2)]
+            self.targets = self.getTargets(self.advice, self.start[:])
+            self.done = 0
 
-    def terminated(self, i, state):
+            self.MaxQ_0(0),
+            # print self.targets, self.advice, start_x, start_y, \
+            # self.simulator.state[0], self.simulator.state[1]
+
+        self.debug = True
+        for i in xrange(TEST_EPISODES):
+            self.initEpisodes(EPISODES)
+            start_x = 12 + random.randrange(SIZE) 
+            start_y = 12 + random.randrange(SIZE)
+            vel_x = random.randrange(5) - 2
+            vel_y = random.randrange(5) - 2
+            self.start = [start_x/SIZE, start_y/SIZE]
+            self.simulator.state = [start_x, start_y, vel_x, vel_y]
+            # self.advice = self.advices[random.randrange(len(self.advices))]
+            self.advice = self.advices[random.randrange(2)]
+            self.targets = self.getTargets(self.advice, self.start[:])
+            self.done = 0
+
+            # print >> sys.stderr, "start is ", start
+            print self.MaxQ_0(0),
+            print self.targets, self.advice, start_x, start_y, self.simulator.state[0], \
+                    self.simulator.state[1]
+
+        for key in self.v_func:
+            if self.v_func[key] > 6:
+                print key, self.v_func[key]
+        # for key in self.c_func:
+        #     print key, self.c_func[key]
+
+    def terminated(self, i):
         if i == 0:
-            if len(self.advice) == 0:
+            cur_state = [self.simulator.state[0]/SIZE, self.simulator.state[1]/SIZE]
+            if self.done == 3:
                 return True
+            elif cur_state == self.start or (cur_state in self.targets):
+                return False
             else:
-                return False
-        elif i == 1:
-            if (self.simulator.state[0]/6, self.simulator.state[1]/6) == \
-                    self.tar_box:
-                print "1 terminated"
                 return True
-            else: 
-                return False
-        elif i == 2:
-            if (self.simulator.state[0]/6, self.simulator.state[1]/6) != \
-                    self.cur_box:
-                print "2 terminated", self.simulator.state, self.cur_box,\
-                        self.tar_box
-                return True
-            else: 
-                return False
         else:
+            print i, "Terminated?"
             return True
 
     def getState(self, i):
-        state = [self.simulator.state[0]%6, self.simulator.state[1]%6,\
-                 self.simulator.state[2], self.simulator.state[3]]
-        if i > 2 or i == 1:
-            state.extend(self.advice[:2])
-        elif i == 2:
-            state.extend(self.translated_advice[:2])
+        if i > 2:
+            state = [self.simulator.state[0]%SIZE, self.simulator.state[1]%SIZE,\
+                     self.simulator.state[2], self.simulator.state[3]]
+            state.extend(self.advice[self.done:])
         elif i == 0:
-            state = self.advice[:]
+            state = self.advice[self.done:]
         return tuple(state)
 
     def execute(self, i):
+        move_reward = 0
         if i == 3: # N
-            return self.simulator.simulateStepWithAcc(0, 1)
-        if i == 4: # NE
-            return self.simulator.simulateStepWithAcc(1, 1)
-        if i == 5: # E
-            return self.simulator.simulateStepWithAcc(1, 0)
-        if i == 6: # SE
-            return self.simulator.simulateStepWithAcc(1, -1)
-        if i == 7: # S
-            return self.simulator.simulateStepWithAcc(0, -1)
-        if i == 8: # SW
-            return self.simulator.simulateStepWithAcc(-1, -1)
-        if i == 9: # W
-            return self.simulator.simulateStepWithAcc(-1, 0)
-        if i == 10: # NW
-            return self.simulator.simulateStepWithAcc(-1, 1)
-        if i == 11: # zero acc
-            return self.simulator.simulateStepWithAcc(0, 0)
-        
-        print i, "THIS SHOULD NOT HAPPEN"
+            move_reward = self.simulator.simulateStepWithAcc(0, 1)
+        elif i == 4: # NE
+            move_reward = self.simulator.simulateStepWithAcc(1, 1)
+        elif i == 5: # E
+            move_reward = self.simulator.simulateStepWithAcc(1, 0)
+        elif i == 6: # SE
+            move_reward = self.simulator.simulateStepWithAcc(1, -1)
+        elif i == 7: # S
+            move_reward = self.simulator.simulateStepWithAcc(0, -1)
+        elif i == 8: # SW
+            move_reward = self.simulator.simulateStepWithAcc(-1, -1)
+        elif i == 9: # W
+            move_reward = self.simulator.simulateStepWithAcc(-1, 0)
+        elif i == 10: # NW
+            move_reward = self.simulator.simulateStepWithAcc(-1, 1)
+        elif i == 11: # zero acc
+            move_reward = self.simulator.simulateStepWithAcc(0, 0)
 
-    def getTarget(self, current, tar_dir):
-        target = list(current[:])
-        if tar_dir == 'E':
-            target[0] += 1
-        elif tar_dir == 'W':
-            target[0] -= 1
-        elif tar_dir == 'N':
-            target[1] += 1
-        elif tar_dir == 'S':
-            target[1] -= 1
+        if [self.simulator.state[0]/SIZE, self.simulator.state[1]/SIZE] == self.targets[self.done]:
+            self.done += 1
+            move_reward += 14*self.done
 
-        return tuple(target)
+        return move_reward
+
+    def getTargets(self, advice, start):
+        targets = []
+        for direction in advice:
+            if direction == 'e':
+                start[0] += 1
+            elif direction == 'w':
+                start[0] -= 1
+            elif direction == 'n':
+                start[1] += 1
+            elif direction == 's':
+                start[1] -= 1
+            targets.append(start[:])
+        return targets
 
     def getTargetDir(self, current, target):
         x_diff = current[0] - target[0]
@@ -275,7 +313,7 @@ class MaxQAgent:
         return 1.0/ (self.ep_count)
 
     def epsilon(self):
-        return 1.35 / (log(self.ep_count+1)+1)
+        return 1.35 / (log(self.ep_count)+1)
 
 
 if __name__ == '__main__':
